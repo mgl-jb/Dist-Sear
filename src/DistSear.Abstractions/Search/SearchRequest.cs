@@ -23,7 +23,12 @@ public enum SearchType
 
 public sealed record SearchRequest
 {
-    public required string Index { get; init; }
+    /// <summary>
+    /// Target index or alias. Optional in a request body: the route already names the index, and
+    /// requiring it to be repeated there means a caller who omits it gets a bare deserialisation
+    /// failure rather than a search. The coordinator overwrites this from the route regardless.
+    /// </summary>
+    public string Index { get; init; } = string.Empty;
 
     /// <summary>Query-string syntax, e.g. <c>title:(fast AND search) -tag:draft "exact phrase"~2</c>.</summary>
     public string? Query { get; init; }

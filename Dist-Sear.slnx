@@ -15,4 +15,7 @@
     <Project Path="tests/DistSear.Index.Tests/DistSear.Index.Tests.csproj" />
     <Project Path="tests/DistSear.IntegrationTests/DistSear.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/DistSear.Seeder/DistSear.Seeder.csproj" />
+  </Folder>
 </Solution>

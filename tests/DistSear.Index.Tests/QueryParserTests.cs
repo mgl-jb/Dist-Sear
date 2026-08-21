@@ -101,6 +101,28 @@ public class QueryParserTests
     }
 
     [Fact]
+    public void FuzzyTermsAreAnalyzedSoTheyCompareAgainstStemsNotWholeWords()
+    {
+        // The dictionary holds "distribut", so measuring distance from "distribited" would compare
+        // a whole word against a stem and miss. Analysing first puts both sides in the same form.
+        Assert.Equal("body:distribit~2", Describe("body:distribited~2"));
+    }
+
+    [Fact]
+    public void FuzzyMatchingActuallyFindsATypoOnAStemmedField()
+    {
+        // "distribited" is one edit from the indexed stem of "distributed" once both are analyzed.
+        Assert.Contains("1", Search("title:distribited~2"));
+    }
+
+    [Fact]
+    public void FuzzyOnAKeywordFieldStaysVerbatim()
+    {
+        // Keyword fields are not analyzed, so there is no stem to align with.
+        Assert.Equal("category:kitchen~1", Describe("category:kitchen~1"));
+    }
+
+    [Fact]
     public void CaretAppliesABoost() =>
         Assert.Equal("title:search^3", Describe("search^3"));
 

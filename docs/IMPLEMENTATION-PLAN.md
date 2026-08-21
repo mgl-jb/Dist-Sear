@@ -15,6 +15,45 @@ Work happens on branch `claude/distributed-search-csharp-azure-le11vx`. No PR un
 
 ---
 
+## 0. Status
+
+**Complete.** All eight phases landed across nine commits on
+`claude/distributed-search-csharp-azure-le11vx`.
+
+| Phase | State | Evidence |
+| --- | --- | --- |
+| Toolchain | Done | .NET 10.0.111 from the Ubuntu archive — the official CDN is blocked by this environment's egress policy |
+| §3 Analysis chain | Done | 28 tests |
+| §4 Index core | Done | 154 tests |
+| §5 Cluster layer | Done | 78 tests |
+| §5/§6 Node + coordinator | Done | 55 in-process cluster tests |
+| §7 Azure storage | Done | 18 emulator-backed tests, run against live Cosmos and Azurite |
+| §7 Auth, rate limiting, caching, telemetry | Done | Cache key covered as a security boundary |
+| §9 Bicep, docker-compose, CI | Done | `bicep build` compiles clean |
+| §8 Docs, seeder | Done | ARCHITECTURE, DATA-MODEL, API, OPERATIONS, LOCAL-DEV, 6 ADRs, seeder |
+
+**333 tests pass** with the emulators running; **315 pass with no Docker at all**, the remaining 18
+reporting as skipped rather than passing vacuously.
+
+### Bugs the tests caught
+
+Six defects were found and fixed rather than worked around. Three came from property tests over the
+index, three from running the Azure code against real emulators:
+
+| Bug | Consequence had it shipped |
+| --- | --- |
+| WAND summed clause scores in pivot order | Tied documents ranked unstably, since floating-point addition is not associative |
+| Pruning silently under-counted total hits | Result counts wrong with no indication |
+| `search_after` could not disambiguate tied sort values | Deep paging repeated or skipped rows |
+| `ILeaderLease.Lost` threw after release | A deposed leader crashed instead of standing down |
+| Manifest commit overwrote unconditionally | An out-of-order upload could roll a recovering replica backwards |
+| Cosmos returned integers as doubles | A year would reach callers as `2021.0` |
+
+The last three are exactly the cases an in-memory stand-in cannot catch, which is why the
+emulator-backed tests exist despite the in-process suite covering the same interfaces.
+
+---
+
 ## 1. Decisions
 
 These were settled with the user up front. Each is recorded permanently as an ADR in `docs/adr/`
@@ -269,19 +308,36 @@ dotnet install script. Host has 30 GB free disk / 15 GB RAM / 4 cores — enough
 
 ---
 
-## 11. Sequencing and risks
+## 11. Outcome
 
-**Phases** (committed at the end of each, so progress is reviewable incrementally):
-1. Analysis chain → 2. Index core → 3. Cluster layer → 4. Node + indexing path →
-5. Coordinator fan-out → 6. Hardening → 7. Infrastructure → 8. Docs & seed data.
+Built in the order planned, committing at each phase:
 
-Phases 1–5 are the core deliverable; 6–8 layer on top. `docs/` is written incrementally alongside the
-phases rather than left to the end, so the ADRs land with the code that implements them.
+1. Analysis chain → 2. Index core → 3. Cluster layer → 4. Node and indexing path →
+5. Coordinator fan-out → 6. Azure storage → 7. Hardening → 8. Infrastructure → 9. Docs and seeder.
 
-**Risks**
-- The Cosmos **vNext Linux emulator is preview**: Request Units are not implemented, and parallel
-  cross-partition query is "not yet implemented". Our query path is per-partition-key, so this is
-  tolerable — and integration tests are trait-gated while the in-memory stores keep unit tests fully
-  independent of the emulator.
-- Scope is large. If a phase proves bigger than expected I will finish it properly and report status
-  rather than silently thinning out later phases.
+**Deviations from the plan, and why**
+
+- *Service Bus was dropped entirely.* Choosing Cosmos as the source of truth made a replication log
+  unnecessary (§1.1), which also removed the SQL Server sidecar the Service Bus emulator requires.
+- *The .NET SDK came from the Ubuntu archive*, not the official CDN, which this environment's egress
+  policy blocks. CI uses `actions/setup-dotnet` and is unaffected.
+- *Total hits became a bounded-exact figure* rather than always exact. WAND skips documents entirely,
+  so counts are exact up to a configurable threshold and reported as a lower bound beyond it —
+  the standard resolution, and now visible in the response.
+- *Cosmos number normalisation was added* after the emulator revealed integers returning as doubles.
+
+**Not built**
+
+- A Cosmos-backed `IApiKeyStore`. The interface, hashing and handler are complete and the `apikeys`
+  container is provisioned; only the Cosmos implementation of the lookup is outstanding, with the
+  in-memory one wired in its place.
+- Background segment merging. Segments accumulate and are compacted only via snapshot round-trips;
+  a tiered merge policy is the natural next step for a long-running index.
+
+**Risks that remain**
+
+- The Cosmos vNext emulator is preview: Request Units are unimplemented, so local runs cannot
+  surface RU pressure. Every query path is per-partition-key, so the unimplemented parallel
+  cross-partition query does not affect correctness.
+- Shard count is fixed at index creation. Getting it wrong means a reindex behind an alias — which
+  works, and is tested, but is not free.

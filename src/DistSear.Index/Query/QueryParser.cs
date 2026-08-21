@@ -334,9 +334,7 @@ public sealed class QueryParser
                 ? (int)ReadNumber()
                 : DefaultFuzziness;
 
-            // Fuzzy terms bypass stemming: the point is to match what the user typed, and stemming
-            // first would measure the distance between stems instead of between words.
-            return new FuzzyQuery(field, Normalise(text, mapping), Math.Clamp(edits, 0, 2));
+            return BuildFuzzy(field, mapping, text, Math.Clamp(edits, 0, 2));
         }
 
         if (text.Contains('*') || text.Contains('?'))
@@ -362,6 +360,35 @@ public sealed class QueryParser
             // One input word expanding to several terms (a synonym rule, say) is a disjunction:
             // any of the expansions matching counts as the word matching.
             _ => new BooleanQuery([.. terms.Select(t => new BooleanClause(new TermQuery(field, t), Occur.Should))])
+        };
+    }
+
+    /// <summary>
+    /// Builds a fuzzy query against the analyzed form of the term.
+    ///
+    /// The dictionary being searched contains analyzed terms, so on a stemmed field it holds
+    /// "distribut", not "distributed". Measuring edit distance from the raw input would compare a
+    /// whole word against a stem and almost never match — a typo in "distributed" would fail on
+    /// exactly the field most likely to be searched. Analyzing first puts both sides in the same
+    /// form, so the distance measures the typo rather than the stemming.
+    /// </summary>
+    private Query BuildFuzzy(string field, FieldMapping mapping, string text, int maxEdits)
+    {
+        if (mapping.Type != FieldType.Text)
+        {
+            return new FuzzyQuery(field, Normalise(text, mapping), maxEdits);
+        }
+
+        var terms = _analyzers.ForSearching(mapping).AnalyzeToTerms(text);
+
+        return terms.Count switch
+        {
+            // Analysis discarded it, as a stopword would be; fall back to the raw form rather than
+            // matching nothing at all.
+            0 => new FuzzyQuery(field, Normalise(text, mapping), maxEdits),
+            1 => new FuzzyQuery(field, terms[0], maxEdits),
+            _ => new BooleanQuery(
+                [.. terms.Select(t => new BooleanClause(new FuzzyQuery(field, t, maxEdits), Occur.Should))])
         };
     }
 

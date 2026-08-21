@@ -325,6 +325,32 @@ public class CosmosClusterStoreTests
         Assert.Contains(nodes, n => n.NodeId == "node-x" && n.Address == "http://x");
         Assert.Contains(nodes, n => n.NodeId == "node-y");
     }
+
+    [SkippableFact]
+    public async Task ANodeWhoseHeartbeatHasGoneStaleIsNotReportedLive()
+    {
+        if (Skip()) return;
+
+        var store = Store();
+
+        await store.HeartbeatAsync(new NodeInfo { NodeId = "node-stale", Address = "http://stale" }, default);
+        Assert.Contains(await store.GetNodesAsync(default), n => n.NodeId == "node-stale");
+
+        // Cosmos removes expired documents as a background task using spare throughput, so a
+        // registration can outlive its TTL by an unbounded margin. Liveness therefore has to be
+        // judged by heartbeat age, not by the document's continued existence.
+        var impatient = new CosmosClusterStore(
+            _fixture.Cosmos,
+            _fixture.Options,
+            new FixedClock(DateTimeOffset.UtcNow + TimeSpan.FromHours(1)));
+
+        Assert.DoesNotContain(await impatient.GetNodesAsync(default), n => n.NodeId == "node-stale");
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 }
 
 [Collection(AzureEmulatorCollection.Name)]

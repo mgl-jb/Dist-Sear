@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DistSear.Abstractions.Mapping;
 using DistSear.Abstractions.Search;
 using DistSear.Abstractions.Storage;
@@ -15,6 +16,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Enums travel as their names, not their ordinals. Ordinals would make the API unreadable and
+// would silently change meaning if a value were ever inserted into an enum.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.Configure<CoordinatorOptions>(
     builder.Configuration.GetSection(CoordinatorOptions.SectionName));

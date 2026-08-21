@@ -113,17 +113,31 @@ public sealed class CosmosClusterStore : IClusterStore
             cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Live nodes, filtered by heartbeat age rather than trusting TTL alone.
+    ///
+    /// Cosmos deletes expired items as a background task using spare throughput, so a document can
+    /// outlive its TTL by an unbounded margin under load. Treating a stale registration as live
+    /// would allocate shards to a node that is gone, and those shards would sit unavailable until
+    /// the record eventually vanished. TTL still does the cleanup; this decides liveness.
+    /// </summary>
     public async Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken)
     {
         var query = new QueryDefinition("SELECT * FROM c");
         using var iterator = _nodes.GetItemQueryIterator<NodeEntity>(query);
 
+        var cutoff = _time.GetUtcNow() - _options.NodeTimeToLive;
         var nodes = new List<NodeInfo>();
 
         while (iterator.HasMoreResults)
         {
             foreach (var entity in await iterator.ReadNextAsync(cancellationToken))
             {
+                if (entity.LastHeartbeat < cutoff)
+                {
+                    continue;
+                }
+
                 nodes.Add(new NodeInfo
                 {
                     NodeId = entity.NodeId,

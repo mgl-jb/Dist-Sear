@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DistSear.Abstractions.Search;
 using DistSear.Abstractions.Storage;
 using DistSear.Abstractions.Transport;
@@ -14,6 +15,11 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Enums travel as their names, not their ordinals. Ordinals would make the API unreadable and
+// would silently change meaning if a value were ever inserted into an enum.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.Configure<NodeOptions>(builder.Configuration.GetSection(NodeOptions.SectionName));
 
