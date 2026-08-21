@@ -87,6 +87,12 @@ public abstract class Query
 {
     public abstract Weight CreateWeight(SearchContext context, double boost);
 
+    /// <summary>
+    /// Sub-queries, for callers that need to walk the tree rather than execute it — highlighting
+    /// needs to know which terms to mark up, for instance.
+    /// </summary>
+    public virtual IEnumerable<Query> Children => [];
+
     /// <summary>Human-readable form, used in explanations and error messages.</summary>
     public abstract string Describe();
 

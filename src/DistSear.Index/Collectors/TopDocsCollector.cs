@@ -156,9 +156,17 @@ public sealed class TopDocsCollector
         }
     }
 
+    /// <summary>
+    /// Sort keys for a hit, with the document id appended as an implicit final key.
+    ///
+    /// That trailing key is what makes <c>search_after</c> correct. Without it, two documents with
+    /// equal sort values are indistinguishable to a cursor, so a page boundary landing inside a run
+    /// of ties would either repeat those documents or skip them entirely. The id is unique and
+    /// stable across shards, so it totally orders any set of hits.
+    /// </summary>
     private object?[] BuildSortValues(int docId, double score, Segment segment)
     {
-        var values = new object?[_sort.Count];
+        var values = new object?[_sort.Count + 1];
 
         for (var i = 0; i < _sort.Count; i++)
         {
@@ -171,6 +179,7 @@ public sealed class TopDocsCollector
                     : _sortColumns[i]?.GetSortValue(docId);
         }
 
+        values[_sort.Count] = segment.GetExternalId(docId);
         return values;
     }
 
@@ -194,29 +203,21 @@ public sealed class TopDocsCollector
     }
 
     /// <summary>Negative when <paramref name="a"/> ranks ahead of <paramref name="b"/>.</summary>
-    private int CompareRank(CollectedHit a, CollectedHit b)
+    private int CompareRank(CollectedHit a, CollectedHit b) =>
+        CompareRank(a, b.SortValues);
+
+    /// <summary>
+    /// Compares a hit against a set of sort values, which may come from another hit or from a
+    /// caller-supplied cursor. The trailing document-id key is always compared ascending, so the
+    /// ordering is total even when every declared sort key ties.
+    /// </summary>
+    private int CompareRank(CollectedHit hit, object?[] other)
     {
-        for (var i = 0; i < _sort.Count; i++)
-        {
-            var comparison = CompareValues(a.SortValues[i], b.SortValues[i]);
-
-            if (comparison != 0)
-            {
-                return _sort[i].Descending ? -comparison : comparison;
-            }
-        }
-
-        // Stable final tiebreak so paging cannot repeat or skip a document.
-        return a.GlobalDocId.CompareTo(b.GlobalDocId);
-    }
-
-    private int CompareRank(CollectedHit hit, object?[] cursor)
-    {
-        var limit = Math.Min(_sort.Count, cursor.Length);
+        var limit = Math.Min(_sort.Count, other.Length);
 
         for (var i = 0; i < limit; i++)
         {
-            var comparison = CompareValues(hit.SortValues[i], cursor[i]);
+            var comparison = CompareValues(hit.SortValues[i], other[i]);
 
             if (comparison != 0)
             {
@@ -224,7 +225,10 @@ public sealed class TopDocsCollector
             }
         }
 
-        return 0;
+        // The tiebreaker is present whenever the caller echoed back a full set of sort values.
+        return other.Length > _sort.Count
+            ? CompareValues(hit.SortValues[_sort.Count], other[_sort.Count])
+            : 0;
     }
 
     /// <summary>Heap ordering: the worst hit must surface first so it can be evicted.</summary>

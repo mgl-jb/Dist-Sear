@@ -41,6 +41,13 @@ public sealed class BooleanQuery : Query
 
     public static BooleanQuery Of(params BooleanClause[] clauses) => new(clauses);
 
+    /// <summary>
+    /// Positive clauses only. A prohibited clause's terms must never be highlighted: they are the
+    /// terms the document was required *not* to contain.
+    /// </summary>
+    public override IEnumerable<Query> Children =>
+        Clauses.Where(c => c.Occur != Occur.MustNot).Select(c => c.Query);
+
     public override Weight CreateWeight(SearchContext context, double boost) =>
         new BooleanWeight(this, context, boost);
 

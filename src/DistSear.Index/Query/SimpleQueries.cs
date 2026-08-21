@@ -37,6 +37,8 @@ public sealed class BoostQuery : Query
 
     public double Boost { get; }
 
+    public override IEnumerable<Query> Children => [Inner];
+
     public override Weight CreateWeight(SearchContext context, double boost) =>
         Inner.CreateWeight(context, boost * Boost);
 
@@ -58,6 +60,8 @@ public sealed class ConstantScoreQuery : Query
     public Query Inner { get; }
 
     public double Score { get; }
+
+    public override IEnumerable<Query> Children => [Inner];
 
     public override Weight CreateWeight(SearchContext context, double boost) =>
         new ConstantScoreWeight(this, Inner.CreateWeight(context, 1.0), Score * boost);
