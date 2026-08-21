@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DistSear.Abstractions/DistSear.Abstractions.csproj" />
+    <Project Path="src/DistSear.Analysis/DistSear.Analysis.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DistSear.Analysis.Tests/DistSear.Analysis.Tests.csproj" />
+  </Folder>
+</Solution>

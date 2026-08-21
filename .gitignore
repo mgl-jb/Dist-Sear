@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+TestResults/
+artifacts/
+*.trx
+.local/
+cosmos-data/
+azurite-data/

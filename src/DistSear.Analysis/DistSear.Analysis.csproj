@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DistSear.Analysis</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Porter2Stemmer" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../DistSear.Abstractions/DistSear.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
