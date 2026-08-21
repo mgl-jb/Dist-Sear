@@ -9,6 +9,9 @@ using DistSear.Node.Hosting;
 using DistSear.Node.Shards;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +54,16 @@ builder.Services.AddSingleton(sp => new ShardHost(
 
 builder.Services.AddSingleton<ShardQueryService>();
 builder.Services.AddHostedService<NodeWorker>();
+
+// Node spans are what let a slow fan-out be attributed to a specific shard rather than guessed at.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("distsear-node"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation());
 
 var app = builder.Build();
 

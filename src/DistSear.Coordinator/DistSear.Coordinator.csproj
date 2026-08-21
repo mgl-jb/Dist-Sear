@@ -7,7 +7,15 @@
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
+    <PackageReference Include="Microsoft.Identity.Web" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Tests assert the cache-key construction directly; it is a security boundary. -->
+    <InternalsVisibleTo Include="DistSear.IntegrationTests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../DistSear.Abstractions/DistSear.Abstractions.csproj" />
     <ProjectReference Include="../DistSear.Analysis/DistSear.Analysis.csproj" />

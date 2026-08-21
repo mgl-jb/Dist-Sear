@@ -36,7 +36,7 @@ public sealed class IndexNotFoundException(string index)
 /// winners. The point is that a shard whose hits all lose the merge never sends a single document
 /// body across the network.
 /// </summary>
-public sealed class SearchCoordinator
+public sealed class SearchCoordinator : ISearchExecutor
 {
     /// <summary>Traces the fan-out, so a slow shard is visible as a span rather than inferred.</summary>
     public static readonly ActivitySource ActivitySource = new("DistSear.Coordinator");
