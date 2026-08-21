@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DistSear.Cluster</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DistSear.Cluster.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../DistSear.Abstractions/DistSear.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
