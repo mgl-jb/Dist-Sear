@@ -35,6 +35,9 @@ public sealed class NumericDocValues : DocValuesColumn
         _present = present;
     }
 
+    /// <summary>Number of documents the column covers.</summary>
+    public int Count => _values.Length;
+
     public override bool HasValue(int docId) => (uint)docId < (uint)_present.Length && _present[docId];
 
     public override IReadOnlyList<object> GetValues(int docId) =>
@@ -50,6 +53,9 @@ public sealed class KeywordDocValues : DocValuesColumn
     private readonly string[][] _values;
 
     public KeywordDocValues(string[][] values) => _values = values;
+
+    /// <summary>Number of documents the column covers.</summary>
+    public int Count => _values.Length;
 
     public override bool HasValue(int docId) =>
         (uint)docId < (uint)_values.Length && _values[docId].Length > 0;

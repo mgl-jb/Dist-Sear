@@ -48,6 +48,19 @@ public sealed class PostingsList
 
     public int ByteLength => _data.Length;
 
+    /// <summary>
+    /// Rebuilds a postings list from bytes previously written by the segment serialiser. The
+    /// encoding is unchanged on the way to disk and back, so restoring costs a copy rather than a
+    /// decode.
+    /// </summary>
+    public static PostingsList FromEncoded(
+        byte[] data,
+        SkipEntry[] skips,
+        int documentFrequency,
+        long totalTermFrequency,
+        bool hasPositions) =>
+        new(data, skips, documentFrequency, totalTermFrequency, hasPositions);
+
     public PostingsEnumerator GetEnumerator() => new(_data, _skips, DocumentFrequency, HasPositions);
 
     /// <summary>Serialised form, written verbatim into a segment file.</summary>

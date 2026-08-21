@@ -3,11 +3,14 @@
     <Project Path="src/DistSear.Abstractions/DistSear.Abstractions.csproj" />
     <Project Path="src/DistSear.Analysis/DistSear.Analysis.csproj" />
     <Project Path="src/DistSear.Cluster/DistSear.Cluster.csproj" />
+    <Project Path="src/DistSear.Coordinator/DistSear.Coordinator.csproj" />
     <Project Path="src/DistSear.Index/DistSear.Index.csproj" />
+    <Project Path="src/DistSear.Node/DistSear.Node.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DistSear.Analysis.Tests/DistSear.Analysis.Tests.csproj" />
     <Project Path="tests/DistSear.Cluster.Tests/DistSear.Cluster.Tests.csproj" />
     <Project Path="tests/DistSear.Index.Tests/DistSear.Index.Tests.csproj" />
+    <Project Path="tests/DistSear.IntegrationTests/DistSear.IntegrationTests.csproj" />
   </Folder>
 </Solution>

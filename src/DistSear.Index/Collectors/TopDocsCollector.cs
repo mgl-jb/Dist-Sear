@@ -237,8 +237,11 @@ public sealed class TopDocsCollector
     /// <summary>
     /// Orders two sort values of unknown static type. Missing values sort last, matching the usual
     /// expectation that documents lacking the sort field appear at the end.
+    ///
+    /// Public because the coordinator has to merge shard results using exactly this ordering: if
+    /// the local and global comparisons disagreed, the merged page would not be the true top-k.
     /// </summary>
-    internal static int CompareValues(object? a, object? b)
+    public static int CompareValues(object? a, object? b)
     {
         if (a is null && b is null)
         {

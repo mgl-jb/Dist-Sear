@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DistSear.IntegrationTests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/DistSear.Node/DistSear.Node.csproj" />
+    <ProjectReference Include="../../src/DistSear.Coordinator/DistSear.Coordinator.csproj" />
+  </ItemGroup>
+</Project>

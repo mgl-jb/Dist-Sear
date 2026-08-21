@@ -164,6 +164,48 @@ public sealed class ShardIndex
         }
     }
 
+    /// <summary>
+    /// Adopts segments restored from a snapshot. Used by recovery: the shard is rebuilt from
+    /// durable storage before the change feed is replayed on top, so a replica returns to service
+    /// in seconds rather than replaying its entire partition.
+    /// </summary>
+    public void RestoreSegments(IEnumerable<Segment> segments)
+    {
+        lock (_gate)
+        {
+            if (_segments.Count > 0 || _buffer.DocumentCount > 0)
+            {
+                throw new InvalidOperationException("Segments can only be restored into an empty shard.");
+            }
+
+            foreach (var segment in segments)
+            {
+                var ordinal = _segments.Count;
+                _segments.Add(segment);
+
+                for (var docId = 0; docId < segment.MaxDoc; docId++)
+                {
+                    if (segment.LiveDocs.IsLive(docId))
+                    {
+                        _locations[segment.GetExternalId(docId)] = (ordinal, docId);
+                    }
+                }
+            }
+
+            Generation++;
+            _searcher = new IndexSearcher([.. _segments]);
+        }
+    }
+
+    /// <summary>Sealed segments, for snapshotting. Excludes anything still in the write buffer.</summary>
+    public IReadOnlyList<Segment> SealedSegments()
+    {
+        lock (_gate)
+        {
+            return [.. _segments];
+        }
+    }
+
     /// <summary>The most recently published reader. Never blocks on writers.</summary>
     public IndexSearcher Searcher => _searcher;
 
