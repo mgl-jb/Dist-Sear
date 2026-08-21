@@ -2,8 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/DistSear.Abstractions/DistSear.Abstractions.csproj" />
     <Project Path="src/DistSear.Analysis/DistSear.Analysis.csproj" />
+    <Project Path="src/DistSear.Index/DistSear.Index.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DistSear.Analysis.Tests/DistSear.Analysis.Tests.csproj" />
+    <Project Path="tests/DistSear.Index.Tests/DistSear.Index.Tests.csproj" />
   </Folder>
 </Solution>

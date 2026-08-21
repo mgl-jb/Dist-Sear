@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DistSear.Index</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Tests exercise the glob matcher and other internals directly. -->
+    <InternalsVisibleTo Include="DistSear.Index.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../DistSear.Abstractions/DistSear.Abstractions.csproj" />
+    <ProjectReference Include="../DistSear.Analysis/DistSear.Analysis.csproj" />
+  </ItemGroup>
+</Project>
