@@ -64,12 +64,63 @@ public sealed class BlobSegmentStore : ISegmentStore
         await blob.UploadAsync(content, overwrite: true, cancellationToken);
     }
 
+    /// <summary>
+    /// Publishes the manifest, but never lets an older snapshot displace a newer one.
+    ///
+    /// Uploads can finish out of order — a large generation racing a small one, or a retry landing
+    /// late — and overwriting unconditionally would roll a recovering replica back to an earlier
+    /// point in the change feed. The write is conditional on the ETag observed alongside the
+    /// generation check, so a concurrent publisher cannot slip in between the two.
+    /// </summary>
     public async Task CommitAsync(CommitManifest manifest, CancellationToken cancellationToken)
     {
         var blob = _container.GetBlobClient(ManifestPath(manifest.Index, manifest.ShardId));
-        var payload = JsonSerializer.SerializeToUtf8Bytes(manifest);
+        var payload = new BinaryData(JsonSerializer.SerializeToUtf8Bytes(manifest));
 
-        await blob.UploadAsync(new BinaryData(payload), overwrite: true, cancellationToken);
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            ETag? current = null;
+
+            try
+            {
+                var existing = await blob.DownloadContentAsync(cancellationToken);
+                var stored = JsonSerializer.Deserialize<CommitManifest>(
+                    existing.Value.Content.ToMemory().Span);
+
+                if (stored is not null && stored.Generation >= manifest.Generation)
+                {
+                    return;
+                }
+
+                current = existing.Value.Details.ETag;
+            }
+            catch (RequestFailedException exception) when (exception.Status == 404)
+            {
+                // No manifest yet, so this write must only succeed if one still does not exist.
+            }
+
+            var conditions = current is { } etag
+                ? new BlobRequestConditions { IfMatch = etag }
+                : new BlobRequestConditions { IfNoneMatch = ETag.All };
+
+            try
+            {
+                await blob.UploadAsync(
+                    payload,
+                    new BlobUploadOptions { Conditions = conditions },
+                    cancellationToken);
+
+                return;
+            }
+            catch (RequestFailedException exception) when (
+                exception.Status is 409 or 412)
+            {
+                // Another publisher committed in between. Re-read and re-decide.
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Could not publish the manifest for {manifest.Index}/{manifest.ShardId} because of write contention.");
     }
 
     public async Task DeleteGenerationAsync(

@@ -1,0 +1,113 @@
+# Local development stack: the same node and coordinator images that run in Azure, pointed at
+# emulators instead of the real services. Storage selection is configuration only, so nothing on the
+# request path differs between here and a deployment.
+name: distsear
+
+services:
+  cosmos:
+    # The vNext Linux emulator. Started in HTTPS mode because the .NET SDK does not support the
+    # emulator's HTTP mode; the certificate is self-signed, which the app trusts only when
+    # DistSear:Azure:AllowUntrustedCertificate is explicitly set.
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-latest
+    command: ["--protocol", "https"]
+    ports:
+      - "8081:8081"
+      - "1234:1234"
+    healthcheck:
+      # The emulator exposes a readiness probe; without waiting on it the nodes race the database
+      # into existence and spend their first minute retrying.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 30s
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    command: ["azurite", "--blobHost", "0.0.0.0", "--loose", "--skipApiVersionCheck"]
+    ports:
+      - "10000:10000"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  coordinator:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        PROJECT: DistSear.Coordinator
+    ports:
+      - "8080:8080"
+    environment:
+      <<: &azure-config
+        DistSear__Storage: Azure
+        DistSear__Azure__CosmosEndpoint: https://cosmos:8081/
+        # Well-known emulator key. Public by design and meaningless outside the emulator.
+        DistSear__Azure__CosmosKey: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+        DistSear__Azure__AllowUntrustedCertificate: "true"
+        DistSear__Azure__BlobEndpoint: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      ConnectionStrings__Redis: redis:6379
+      Logging__LogLevel__Default: Information
+    depends_on:
+      cosmos:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Three index nodes, matching the minimum replica count a deployment runs. Each needs a stable,
+  # distinct node id: shard placement is a function of it, so a node returning under a different id
+  # is treated as a new node and allocated different shards.
+  node-a:
+    build: &node-build
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        PROJECT: DistSear.Node
+    environment: &node-env
+      <<: *azure-config
+      DistSear__Node__NodeId: node-a
+      DistSear__Node__Address: http://node-a:8080
+    depends_on:
+      cosmos:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+
+  node-b:
+    build: *node-build
+    environment:
+      <<: *node-env
+      DistSear__Node__NodeId: node-b
+      DistSear__Node__Address: http://node-b:8080
+    depends_on:
+      cosmos:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+
+  node-c:
+    build: *node-build
+    environment:
+      <<: *node-env
+      DistSear__Node__NodeId: node-c
+      DistSear__Node__Address: http://node-c:8080
+    depends_on:
+      cosmos:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy

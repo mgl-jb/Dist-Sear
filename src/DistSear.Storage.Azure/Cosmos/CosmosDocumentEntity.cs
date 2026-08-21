@@ -75,13 +75,35 @@ internal static class JsonValueConverter
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Null or JsonValueKind.Undefined => null,
-
-        // Integers are kept as longs so that identifiers and counts do not pick up floating-point
-        // representation error on the way through.
-        JsonValueKind.Number => element.TryGetInt64(out var integer) ? integer : element.GetDouble(),
-
+        JsonValueKind.Number => ToNumber(element),
         JsonValueKind.Array => element.EnumerateArray().Select(ToClr).ToArray(),
         JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ToClr(p.Value)),
         _ => element.ToString()
     };
+
+    /// <summary>
+    /// Chooses a CLR type for a JSON number.
+    ///
+    /// Cosmos has a single numeric type, an IEEE-754 double, so a value written as the integer 7
+    /// can come back as 7.0 — the distinction simply does not survive storage. Rather than let that
+    /// leak out as an inconsistency, whole numbers within long range are normalised back to long.
+    ///
+    /// The convention is safe because the index coerces every value by its declared field type
+    /// anyway: a field mapped as <c>Double</c> is read as a double whatever this returns. What it
+    /// buys is that identifiers, counts and years behave as integers when handed back to callers in
+    /// stored fields, instead of arriving as 2021.0.
+    /// </summary>
+    private static object ToNumber(JsonElement element)
+    {
+        if (element.TryGetInt64(out var integer))
+        {
+            return integer;
+        }
+
+        var value = element.GetDouble();
+
+        return double.IsInteger(value) && value is >= long.MinValue and <= long.MaxValue
+            ? (long)value
+            : value;
+    }
 }

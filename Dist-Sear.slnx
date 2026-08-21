@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/DistSear.Abstractions/DistSear.Abstractions.csproj" />
     <Project Path="src/DistSear.Analysis/DistSear.Analysis.csproj" />
+    <Project Path="src/DistSear.Client/DistSear.Client.csproj" />
     <Project Path="src/DistSear.Cluster/DistSear.Cluster.csproj" />
     <Project Path="src/DistSear.Coordinator/DistSear.Coordinator.csproj" />
     <Project Path="src/DistSear.Index/DistSear.Index.csproj" />

@@ -87,6 +87,13 @@ public sealed class BlobLeaseElector : ILeaderElector
         private readonly ILogger? _logger;
         private int _disposed;
 
+        /// <summary>
+        /// Captured once at construction. Reading CancellationTokenSource.Token after the source is
+        /// disposed throws, and callers legitimately check this token after releasing the lease to
+        /// confirm they are no longer leader.
+        /// </summary>
+        private readonly CancellationToken _lostToken;
+
         public BlobLease(
             BlobLeaseClient client,
             TimeSpan duration,
@@ -96,6 +103,7 @@ public sealed class BlobLeaseElector : ILeaderElector
             _client = client;
             _logger = logger;
             LeaseId = leaseId;
+            _lostToken = _lost.Token;
 
             // Renew at a third of the duration: two consecutive renewals can fail transiently and
             // leadership still survives.
@@ -105,7 +113,7 @@ public sealed class BlobLeaseElector : ILeaderElector
 
         public string LeaseId { get; }
 
-        public CancellationToken Lost => _lost.Token;
+        public CancellationToken Lost => _lostToken;
 
         private async void RenewAsync()
         {
