@@ -12,12 +12,19 @@ namespace DistSear.Node.Shards;
 /// before: that ordering is what makes delivery at-least-once rather than at-most-once, and since
 /// indexing is an upsert keyed by document id, redelivery is harmless.
 /// </summary>
-public sealed class ShardIndexer
+public sealed class ShardIndexer : IAsyncDisposable
 {
     private readonly IDocumentStore _documents;
     private readonly ICheckpointStore _checkpoints;
     private readonly ShardIndex _index;
     private readonly ILogger? _logger;
+
+    /// <summary>
+    /// Held open across batches. Cosmos returns a live iterator whose position advances as it is
+    /// read, so recreating it per batch would discard that position and re-establish the feed on
+    /// every poll.
+    /// </summary>
+    private IChangeFeedCursor? _cursor;
 
     public ShardIndexer(
         string nodeId,
@@ -53,8 +60,21 @@ public sealed class ShardIndexer
 
     public long DocumentsApplied { get; private set; }
 
-    /// <summary>Positions the reader, either from a restored snapshot or from the beginning.</summary>
-    public void SeekTo(string? continuationToken) => ContinuationToken = continuationToken;
+    /// <summary>
+    /// Positions the reader, either from a restored snapshot or from the beginning. Drops any open
+    /// cursor so the next read starts from the requested position.
+    /// </summary>
+    public void SeekTo(string? continuationToken)
+    {
+        ContinuationToken = continuationToken;
+
+        var stale = Interlocked.Exchange(ref _cursor, null);
+
+        if (stale is not null)
+        {
+            _ = stale.DisposeAsync().AsTask();
+        }
+    }
 
     /// <summary>
     /// Reads and applies one batch. Returns the number of documents applied, so callers can drain
@@ -62,8 +82,9 @@ public sealed class ShardIndexer
     /// </summary>
     public async Task<int> PumpOnceAsync(CancellationToken cancellationToken)
     {
-        await using var cursor = _documents.OpenChangeFeed(ShardKey, ContinuationToken);
-        var batch = await cursor.ReadNextAsync(cancellationToken);
+        _cursor ??= _documents.OpenChangeFeed(ShardKey, ContinuationToken);
+
+        var batch = await _cursor.ReadNextAsync(cancellationToken);
 
         if (batch.Documents.Count == 0)
         {
@@ -97,6 +118,16 @@ public sealed class ShardIndexer
             ContinuationToken);
 
         return batch.Documents.Count;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        var cursor = Interlocked.Exchange(ref _cursor, null);
+
+        if (cursor is not null)
+        {
+            await cursor.DisposeAsync();
+        }
     }
 
     /// <summary>Reads until the feed is drained. Returns the total applied.</summary>

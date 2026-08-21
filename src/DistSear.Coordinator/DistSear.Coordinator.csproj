@@ -13,5 +13,6 @@
     <ProjectReference Include="../DistSear.Analysis/DistSear.Analysis.csproj" />
     <ProjectReference Include="../DistSear.Index/DistSear.Index.csproj" />
     <ProjectReference Include="../DistSear.Cluster/DistSear.Cluster.csproj" />
+    <ProjectReference Include="../DistSear.Storage.Azure/DistSear.Storage.Azure.csproj" />
   </ItemGroup>
 </Project>

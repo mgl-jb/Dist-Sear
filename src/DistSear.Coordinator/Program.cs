@@ -6,6 +6,7 @@ using DistSear.Analysis;
 using DistSear.Cluster;
 using DistSear.Cluster.Allocation;
 using DistSear.Cluster.InMemory;
+using DistSear.Storage.Azure;
 using DistSear.Coordinator.Search;
 using DistSear.Coordinator.Transport;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,10 @@ if (string.Equals(storage, "InMemory", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddSingleton<ISegmentStore, InMemorySegmentStore>();
     builder.Services.AddSingleton<ICheckpointStore, InMemoryCheckpointStore>();
     builder.Services.AddSingleton<ILeaderElector, InMemoryLeaderElector>();
+}
+else if (string.Equals(storage, "Azure", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddAzureStorage(builder.Configuration);
 }
 else
 {
